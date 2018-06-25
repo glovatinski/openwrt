@@ -87,6 +87,13 @@ static void mt7621_hw_init(struct mt7620_gsw *gsw, struct device_node *np)
 	/* enable MDIO to control MT7530 */
 	rt_sysc_m32(3 << 12, 0, SYSC_GPIO_MODE);
 
+	/* gpio mux - RGMII2=Normal mode */
+	rt_sysc_m32(BIT(15), 0, SYSC_GPIO_MODE);
+
+	/* set GMAC2 RGMII mode */
+	rt_sysc_m32(3 << 14, 0, SYSC_REG_CFG1);
+
+
 	/* turn off all PHYs */
 	for (i = 0; i <= 4; i++) {
 		val = _mt7620_mii_read(gsw, i, 0x0);
@@ -108,16 +115,19 @@ static void mt7621_hw_init(struct mt7620_gsw *gsw, struct device_node *np)
 		mt7530_mdio_w32(gsw, 0x3600, 0x5e33b);
 	}
 
-	/* (GE2, Link down) */
-	mtk_switch_w32(gsw, 0x8000, GSW_REG_MAC_P1_MCR);
+	/* (GE2, Link up) */
+	val = 0x2005e33b;
+//	val |= BIT(17);
+//	val &= ~BIT(16);
+	mtk_switch_w32(gsw, val, GSW_REG_MAC_P1_MCR);
 
 	/* Set switch max RX frame length to 2k */
 	mt7530_mdio_w32(gsw, GSW_REG_GMACCR, 0x3F0B);
 
 	/* Enable Port 6, P5 as GMAC5, P5 disable */
 	val = mt7530_mdio_r32(gsw, 0x7804);
-	val &= ~BIT(8);
-	val |= BIT(6) | BIT(13) | BIT(16);
+	val &= ~( BIT(8) | BIT(6) );
+	val |= BIT(7) | BIT(13) | BIT(16);
 	mt7530_mdio_w32(gsw, 0x7804, val);
 
 	val = rt_sysc_r32(0x10);
