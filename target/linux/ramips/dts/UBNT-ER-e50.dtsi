@@ -34,32 +34,57 @@
 	mtd-mac-address = <&factory 0x22>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&rgmii1_pins &rgmii2_pins &mdio_pins>;
-	mediatek,portmap = "wllll";
+	mediatek,portmap = "lllllw";
 
 	port@4 {
 		status = "okay";
-		phy-handle = <&phy4>;
 		phy-mode = "rgmii";
 	};
 
 	port@5 {
 		status = "okay";
-		phy-handle = <&phy5>;
 		phy-mode = "rgmii";
+		mediatek,fixed-link = <1000 1 1 1>;
 	};
 
 	mdio-bus {
 		status = "okay";
 
-		phy4: ethernet-phy@4 {
-			reg = <4>;
-			phy-mode = "rgmii";
-		};
-
-		phy5: ethernet-phy@5 {
-			reg = <5>;
-			phy-mode = "rgmii";
-		};
+	phy0: ethernet-phy@0 {
+	    reg = <0>;
+	    phy-mode = "rgmii";
+	};
+	
+	phy1: ethernet-phy@1 {
+	    reg = <1>;
+	    phy-mode = "rgmii";
+	};
+	
+	phy2: ethernet-phy@2 {
+	    reg = <2>;
+	    phy-mode = "rgmii";
+	    };
+	
+	phy3: ethernet-phy@3 {
+	    reg = <3>;
+	    phy-mode = "rgmii";
+	};
+	
+	phy4: ethernet-phy@4 {
+	    reg = <4>;
+	    phy-mode = "rgmii";
+	};
+	
+	phy5: ethernet-phy@5 {
+	    compatible = "at803x";
+	    reg = <5>;
+	    phy-mode = "rgmii";
+	};
+	
+	phy1f: ethernet-phy@1f {
+	    reg = <0x1f>;
+	    phy-mode = "rgmii";
+	};
 	};
 };
 

@@ -66,10 +66,14 @@ static irqreturn_t gsw_interrupt_mt7621(int irq, void *_priv)
 	return IRQ_HANDLED;
 }
 
+#define REG_ESW_AGC			0x0C
+#define REG_ESW_MFC			0x10
 static void mt7621_hw_init(struct mt7620_gsw *gsw, struct device_node *np)
 {
 	u32 i;
 	u32 val;
+	u32 Link = 0x5e33b;
+	u32 phy_id0 = 0, phy_id1 = 0;
 
 	/* wardware reset the switch */
 	fe_reset(RST_CTRL_MCM);
@@ -84,6 +88,7 @@ static void mt7621_hw_init(struct mt7620_gsw *gsw, struct device_node *np)
 	/* set GMAC1 RGMII mode */
 	rt_sysc_m32(3 << 12, 0, SYSC_REG_CFG1);
 
+
 	/* enable MDIO to control MT7530 */
 	rt_sysc_m32(3 << 12, 0, SYSC_GPIO_MODE);
 
@@ -93,7 +98,6 @@ static void mt7621_hw_init(struct mt7620_gsw *gsw, struct device_node *np)
 	/* set GMAC2 RGMII mode */
 	rt_sysc_m32(3 << 14, 0, SYSC_REG_CFG1);
 
-
 	/* turn off all PHYs */
 	for (i = 0; i <= 4; i++) {
 		val = _mt7620_mii_read(gsw, i, 0x0);
@@ -101,34 +105,37 @@ static void mt7621_hw_init(struct mt7620_gsw *gsw, struct device_node *np)
 		_mt7620_mii_write(gsw, i, 0x0, val);
 	}
 
+	/* Readout PHY5 Id */
+	val = 5;
+	phy_id0 = _mt7620_mii_read(gsw, val, 2);
+	phy_id1 = _mt7620_mii_read(gsw, val, 3);
+	printk("Unknown EPHY (%04X:%04X) detected on MDIO addr 0x%02X\n",
+		phy_id0, phy_id1, val);
+
 	/* reset the switch */
 	mt7530_mdio_w32(gsw, 0x7000, 0x3);
 	usleep_range(10, 20);
 
-	if ((rt_sysc_r32(SYSC_REG_CHIP_REV_ID) & 0xFFFF) == 0x0101) {
-		/* (GE1, Force 1000M/FD, FC ON, MAX_RX_LENGTH 1536) */
-		mtk_switch_w32(gsw, 0x2305e30b, GSW_REG_MAC_P0_MCR);
-		mt7530_mdio_w32(gsw, 0x3600, 0x5e30b);
-	} else {
-		/* (GE1, Force 1000M/FD, FC ON, MAX_RX_LENGTH 1536) */
-		mtk_switch_w32(gsw, 0x2305e33b, GSW_REG_MAC_P0_MCR);
-		mt7530_mdio_w32(gsw, 0x3600, 0x5e33b);
-	}
+	/* MT7621 E2 has FC bug, disable FC */
+	if ((rt_sysc_r32(SYSC_REG_CHIP_REV_ID) & 0xFFFF) == 0x0101)
+		Link &= ~(0x3 << 4);
 
-	/* (GE2, Link up) */
-	val = 0x2005e33b;
-//	val |= BIT(17);
-//	val &= ~BIT(16);
-	mtk_switch_w32(gsw, val, GSW_REG_MAC_P1_MCR);
+	/* configure MT7530 HW-TRAP */
+	/* Enable Port 6, P5 as GMAC5, P5 disable */
+	val = mt7530_mdio_r32(gsw, 0x7804);
+	val &= ~( BIT(8) | BIT(6) | BIT(15) );
+	val |= BIT(7) | BIT(13) | BIT(16);
+	mt7530_mdio_w32(gsw, 0x7804, val);
+	
+	
+
+	//mtk_switch_w32(gsw, 0x2305e30b, GSW_REG_MAC_P0_MCR);
+	mt7530_mdio_w32(gsw, 0x3600, Link);
+	mt7530_mdio_w32(gsw, 0x3500, Link);
 
 	/* Set switch max RX frame length to 2k */
 	mt7530_mdio_w32(gsw, GSW_REG_GMACCR, 0x3F0B);
-
-	/* Enable Port 6, P5 as GMAC5, P5 disable */
-	val = mt7530_mdio_r32(gsw, 0x7804);
-	val &= ~( BIT(8) | BIT(6) );
-	val |= BIT(7) | BIT(13) | BIT(16);
-	mt7530_mdio_w32(gsw, 0x7804, val);
+	
 
 	val = rt_sysc_r32(0x10);
 	val = (val >> 6) & 0x7;
@@ -176,17 +183,20 @@ static void mt7621_hw_init(struct mt7620_gsw *gsw, struct device_node *np)
 
 	/* set MT7530 central align */
 	val = mt7530_mdio_r32(gsw, 0x7830);
-	val &= ~BIT(0);
+	val &= ~(BIT(0) | BIT(1));
 	val |= BIT(1);
 	mt7530_mdio_w32(gsw, 0x7830, val);
+	
 	val = mt7530_mdio_r32(gsw, 0x7a40);
-	val &= ~BIT(30);
+	val &= ~(BIT(30) | BIT(28));
 	mt7530_mdio_w32(gsw, 0x7a40, val);
 	mt7530_mdio_w32(gsw, 0x7a78, 0x855);
 
+	
+	
+
 	/* delay setting for 10/1000M */
-	mt7530_mdio_w32(gsw, 0x7b00, 0x102);
-	mt7530_mdio_w32(gsw, 0x7b04, 0x14);
+	mt7530_mdio_w32(gsw, 0x7b04, 0x10);
 
 	/* lower Tx Driving*/
 	mt7530_mdio_w32(gsw, 0x7a54, 0x44);
@@ -196,6 +206,16 @@ static void mt7621_hw_init(struct mt7620_gsw *gsw, struct device_node *np)
 	mt7530_mdio_w32(gsw, 0x7a74, 0x44);
 	mt7530_mdio_w32(gsw, 0x7a7c, 0x44);
 
+	/* reduce P5 RGMII Tx driving */
+	// 8mA
+	mt7530_mdio_w32(gsw, 0x7810, 0x11);
+
+	/* TO_CPU check VLAN members */
+	mt7530_mdio_w32(gsw, REG_ESW_AGC, 0x0007181d);
+
+	/* Set P6 as CPU Port */
+        mt7530_mdio_w32(gsw, REG_ESW_MFC, 0x7f7f7fe0);
+    
 	/* turn on all PHYs */
 	for (i = 0; i <= 4; i++) {
 		val = _mt7620_mii_read(gsw, i, 0);

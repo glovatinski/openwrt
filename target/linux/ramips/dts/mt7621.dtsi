@@ -418,20 +418,17 @@
 		};
 
 		port@5 {
-			compatible = "mediatek,eth-port";
+			compatible = "mediatek,mt7620a-gsw-port", "mediatek,eth-port";
 			reg = <5>;
 
-			status = "okay";
+			status = "disabled";
 		};
 
 		mdio-bus {
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			phy1f: ethernet-phy@1f {
-				reg = <0x1f>;
-				phy-mode = "rgmii";
-			};
+			status = "disabled";
 		};
 	};
 

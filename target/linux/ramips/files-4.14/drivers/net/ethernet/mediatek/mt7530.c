@@ -226,7 +226,13 @@ struct mt7530_mapping {
 		.members = { 0, 0x7d, 0x42 },
 		.etags = { 0, 0x40, 0x40 },
 		.vids = { 0, 1, 2 },
-	},
+	}, {
+		.name = "lllllw",
+		.pvids = { 1, 1, 1, 1, 1, 2, 1 },
+		.members = { 0, 0x5f, 0x60 },
+		.etags = { 0, 0x40, 0x40 },
+		.vids = { 0, 1, 2 },
+	}, 
 };
 
 struct mt7530_mapping*
