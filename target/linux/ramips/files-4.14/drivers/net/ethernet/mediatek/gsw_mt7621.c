@@ -88,7 +88,6 @@ static void mt7621_hw_init(struct mt7620_gsw *gsw, struct device_node *np)
 	/* set GMAC1 RGMII mode */
 	rt_sysc_m32(3 << 12, 0, SYSC_REG_CFG1);
 
-
 	/* enable MDIO to control MT7530 */
 	rt_sysc_m32(3 << 12, 0, SYSC_GPIO_MODE);
 
@@ -105,12 +104,12 @@ static void mt7621_hw_init(struct mt7620_gsw *gsw, struct device_node *np)
 		_mt7620_mii_write(gsw, i, 0x0, val);
 	}
 
-	/* Readout PHY5 Id */
-	val = 5;
+	/* Readout PHY5 Id (AR8033)*/
+	val = 0x7;
 	phy_id0 = _mt7620_mii_read(gsw, val, 2);
 	phy_id1 = _mt7620_mii_read(gsw, val, 3);
-	printk("Unknown EPHY (%04X:%04X) detected on MDIO addr 0x%02X\n",
-		phy_id0, phy_id1, val);
+	printk("AR8033 EPHY (%04X:%04X) on MDIO addr 0x%02X\n",
+			phy_id0, phy_id1, val);
 
 	/* reset the switch */
 	mt7530_mdio_w32(gsw, 0x7000, 0x3);
@@ -126,16 +125,30 @@ static void mt7621_hw_init(struct mt7620_gsw *gsw, struct device_node *np)
 	val &= ~( BIT(8) | BIT(6) | BIT(15) );
 	val |= BIT(7) | BIT(13) | BIT(16);
 	mt7530_mdio_w32(gsw, 0x7804, val);
-	
-	
 
 	//mtk_switch_w32(gsw, 0x2305e30b, GSW_REG_MAC_P0_MCR);
 	mt7530_mdio_w32(gsw, 0x3600, Link);
+
+	Link |= 0x23000000; //(GE1, auto-polling)
+	mtk_switch_w32(gsw, Link, GSW_REG_MAC_P0_MCR); //(GE2, auto-polling)
+
+	Link = 0x5e33b;
 	mt7530_mdio_w32(gsw, 0x3500, Link);
+	Link |= 0x23000000; //(GE2, auto-polling)
+	mtk_switch_w32(gsw, Link, GSW_REG_MAC_P1_MCR);
+	
+	// Enable auto pooling!
+	val = mtk_switch_r32(gsw, ESW_PHY_POLLING);
+	val |= (1<<31);
+	val &= ~(0x1f);
+	val &= ~(0x1f<<8);
+	val |= (0x00 << 0);//setup PHY address for auto polling (Start Addr).
+	val |= (0x07 << 8);// setup PHY address for auto polling (End Addr).
+	mtk_switch_w32(gsw, val, ESW_PHY_POLLING);
+
 
 	/* Set switch max RX frame length to 2k */
 	mt7530_mdio_w32(gsw, GSW_REG_GMACCR, 0x3F0B);
-	
 
 	val = rt_sysc_r32(0x10);
 	val = (val >> 6) & 0x7;
@@ -192,11 +205,11 @@ static void mt7621_hw_init(struct mt7620_gsw *gsw, struct device_node *np)
 	mt7530_mdio_w32(gsw, 0x7a40, val);
 	mt7530_mdio_w32(gsw, 0x7a78, 0x855);
 
-	
-	
-
 	/* delay setting for 10/1000M */
+	/* P5 RGMII Wrapper TX Clock */
 	mt7530_mdio_w32(gsw, 0x7b04, 0x10);
+	/* P5 RGMII Wrapper RX Clock */
+	mt7530_mdio_w32(gsw, 0x7b00, 0x10);
 
 	/* lower Tx Driving*/
 	mt7530_mdio_w32(gsw, 0x7a54, 0x44);
@@ -210,10 +223,7 @@ static void mt7621_hw_init(struct mt7620_gsw *gsw, struct device_node *np)
 	// 8mA
 	mt7530_mdio_w32(gsw, 0x7810, 0x11);
 
-	/* TO_CPU check VLAN members */
-	mt7530_mdio_w32(gsw, REG_ESW_AGC, 0x0007181d);
-
-	/* Set P6 as CPU Port */
+	/* Set P6 as CPU Port 0x10 */
         mt7530_mdio_w32(gsw, REG_ESW_MFC, 0x7f7f7fe0);
     
 	/* turn on all PHYs */

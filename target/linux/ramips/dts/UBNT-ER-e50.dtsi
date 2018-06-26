@@ -44,7 +44,6 @@
 	port@5 {
 		status = "okay";
 		phy-mode = "rgmii";
-		mediatek,fixed-link = <1000 1 1 1>;
 	};
 
 	mdio-bus {
@@ -75,9 +74,9 @@
 	    phy-mode = "rgmii";
 	};
 	
-	phy5: ethernet-phy@5 {
+	phy7: ethernet-phy@7 {
 	    compatible = "at803x";
-	    reg = <5>;
+	    reg = <0x7>;
 	    phy-mode = "rgmii";
 	};
 	
